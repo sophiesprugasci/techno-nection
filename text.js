@@ -26,8 +26,7 @@ const phrases = [
 
 // New intro phrases array
 const introPhrases = [
-  "Devi vederla così, la techno è tecnologica. È una maniera futuristica di fare musica: fare qualcosa che non è stato già fatto.",
-  "Gli spazi che la club culture ha occupato e trasformato attraverso l'estasi e la scomparsa collettiva rappresentano una fantasia di liberazione, una fuga dalla propria identità. Un luogo dove non si è nessuno, ma al quale si appartiene tutti."
+  "Devi vederla così, la techno è tecnologica. È una maniera futuristica di fare musica: fare qualcosa che non è stato già fatto."
 ];
 
 // Remove old preload, customFont and static draw logic and add dynamic reveal animation:
