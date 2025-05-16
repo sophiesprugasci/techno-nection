@@ -198,7 +198,7 @@ function draw() {
     return;
   }
 
-  // --- PHRASES LOOP (as before) ---
+  // --- PHRASES LOOP: ALWAYS USE FIRST LOOP DYNAMIC FOREVER ---
   // Black screen logic for 10 seconds at the start of the first loop
   if (showBlackScreen) {
     background(0);
@@ -238,121 +238,8 @@ function draw() {
     motionBlobs = [];
   }
 
-  // --- FIRST LOOPS: text + blobs (normal colors, no video) ---
-  if (phraseLoopCount < LOOPS_BEFORE_VIDEO) {
-    background(0);
-    for (let blob of motionBlobs) {
-      let region = null;
-      try {
-        if (!currentFrame) {
-          console.warn('No currentFrame available, skipping blob drawing');
-          continue;
-        }
-        region = currentFrame.get(blob.minX, blob.minY, blob.width, blob.height);
-        region.loadPixels();
-        for (let i = 0; i < region.pixels.length; i += 4) {
-          let r = region.pixels[i];
-          let g = region.pixels[i+1];
-          let b = region.pixels[i+2];
-          let gray = 0.299*r + 0.587*g + 0.114*b;
-          region.pixels[i] = region.pixels[i+1] = region.pixels[i+2] = gray;
-        }
-        region.updatePixels();
-        if (phraseLoopCount % 2 === 1) { // Odd loops: invert colors
-          region.loadPixels();
-          for (let i = 0; i < region.pixels.length; i += 4) {
-            region.pixels[i] = 255 - region.pixels[i];     // R
-            region.pixels[i+1] = 255 - region.pixels[i+1]; // G
-            region.pixels[i+2] = 255 - region.pixels[i+2]; // B
-          }
-          region.updatePixels();
-        }
-        image(region, blob.minX, blob.minY);
-      } catch (e) {
-        console.warn('Error extracting or drawing blob region:', e);
-        continue;
-      }
-    }
-    // Draw the phrase text with word-by-word reveal (no fade)
-    textFont('Helvetica Neue, Arial, sans-serif');
-    textStyle(BOLD);
-    textSize(60);
-    textLeading(60);
-    textAlign(LEFT, TOP);
-    fill(255);
-    const x = width * 0.01;
-    const y = height * 0.01;
-    const boxWidth = width * 0.7;
-    let cursorX = x;
-    let cursorY = y;
-    let spaceW = textWidth(' ');
-    for (let i = 0; i < words.length; i++) {
-      if (i < displayedWordsCount) {
-        // Already revealed, full opacity
-        text(words[i], cursorX, cursorY);
-      } else {
-        // Not yet revealed
-        break;
-      }
-      cursorX += textWidth(words[i]) + spaceW;
-      // Wrap text if needed
-      if (cursorX > x + boxWidth) {
-        cursorX = x;
-        cursorY += textLeading();
-      }
-    }
-    // Reveal logic: only reveal next word after fixed duration
-    if (!isHolding) {
-      if (displayedWordsCount < words.length) {
-        let t = (millis() - currentWordRevealStart) / WORD_REVEAL_DURATION;
-        if (t >= 1) {
-          displayedWordsCount++;
-          currentWordRevealStart = millis();
-        }
-      } else {
-        isHolding = true;
-        holdStartTime = millis();
-      }
-    } else if (millis() >= holdStartTime + 7000) {
-      currentPhraseIndex = (currentPhraseIndex + 1);
-      console.log('Advancing to phrase', currentPhraseIndex, 'of', phrases.length, 'PhraseLoopCount:', phraseLoopCount);
-      if (currentPhraseIndex >= phrases.length) {
-        phraseLoopCount++;
-        betweenLoopsBlack = true;
-        betweenLoopsStartTime = millis();
-        console.log('End of phrases, starting black screen, PhraseLoopCount:', phraseLoopCount);
-      } else {
-        initPhrase();
-      }
-    }
-    return;
-  }
-
-  // --- AFTER LOOPS_BEFORE_VIDEO: show second intro phrase centered, then continue as before ---
-  if (phraseLoopCount === LOOPS_BEFORE_VIDEO) {
-    background(0);
-    textFont('Courier New');
-    textStyle(NORMAL);
-    textSize(28);
-    textLeading(28);
-    fill(255);
-    textAlign(CENTER, CENTER);
-    const introText = introPhrases[1];
-    const x = width / 2;
-    const y = height / 2;
-    const boxWidth = width * 0.7;
-    text(introText, x, y, boxWidth);
-    // Show for 15s, then increment phraseLoopCount to continue
-    if (!window._secondIntroStart) window._secondIntroStart = millis();
-    if (millis() - window._secondIntroStart >= 15000) {
-      phraseLoopCount++;
-      window._secondIntroStart = null;
-    }
-    return;
-  }
-
-  // --- AFTER LOOPS_BEFORE_VIDEO + second intro: text + video + blobs (inverted colors in blobs) ---
-  clear();
+  // --- ALWAYS SHOW BLOBS ON BLACK BACKGROUND ---
+  background(0);
   for (let blob of motionBlobs) {
     let region = null;
     try {
@@ -385,35 +272,56 @@ function draw() {
       continue;
     }
   }
-  // Draw the phrase text
+  // Draw the phrase text with word-by-word reveal (no fade)
   textFont('Helvetica Neue, Arial, sans-serif');
   textStyle(BOLD);
   textSize(60);
   textLeading(60);
-  fill(255);
   textAlign(LEFT, TOP);
-  displayedWordsCount = Math.min(displayedWordsCount, words.length);
-  const displayText = words.slice(0, displayedWordsCount).join(' ');
+  fill(255);
   const x = width * 0.01;
   const y = height * 0.01;
   const boxWidth = width * 0.7;
-  text(displayText, x, y, boxWidth);
-
+  let cursorX = x;
+  let cursorY = y;
+  let spaceW = textWidth(' ');
+  for (let i = 0; i < words.length; i++) {
+    if (i < displayedWordsCount) {
+      // Already revealed, full opacity
+      text(words[i], cursorX, cursorY);
+    } else {
+      // Not yet revealed
+      break;
+    }
+    cursorX += textWidth(words[i]) + spaceW;
+    // Wrap text if needed
+    if (cursorX > x + boxWidth) {
+      cursorX = x;
+      cursorY += textLeading();
+    }
+  }
+  // Reveal logic: only reveal next word after fixed duration
   if (!isHolding) {
-    if (millis() >= nextWordTime) {
-      displayedWordsCount++;
-      nextWordTime = millis() + phraseSpeed;
-      if (displayedWordsCount > words.length) {
-        isHolding = true;
-        holdStartTime = millis();
+    if (displayedWordsCount < words.length) {
+      let t = (millis() - currentWordRevealStart) / WORD_REVEAL_DURATION;
+      if (t >= 1) {
+        displayedWordsCount++;
+        currentWordRevealStart = millis();
       }
+    } else {
+      isHolding = true;
+      holdStartTime = millis();
     }
   } else if (millis() >= holdStartTime + 7000) {
-    currentPhraseIndex = (currentPhraseIndex + 1) % phrases.length;
+    currentPhraseIndex = (currentPhraseIndex + 1);
     console.log('Advancing to phrase', currentPhraseIndex, 'of', phrases.length, 'PhraseLoopCount:', phraseLoopCount);
+    if (currentPhraseIndex >= phrases.length) {
+      // Instead of advancing to video phase, just restart phrases
+      currentPhraseIndex = 0;
+    }
     initPhrase();
   }
-  // Table remains hidden
+  return;
 }
 
 function drawIntroPhrase(alpha) {
