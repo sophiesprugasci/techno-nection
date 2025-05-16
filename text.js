@@ -91,7 +91,7 @@ function setup() {
   const canvas = createCanvas(windowWidth, windowHeight);
   canvas.style('position', 'relative');
   canvas.style('z-index', '1');
-  textFont('Helvetica Neue');
+  textFont('Helvetica Neue, Arial, sans-serif');
   textStyle(BOLD);
   textSize(60);
   textLeading(60);
@@ -115,6 +115,13 @@ function setup() {
     vid.style.filter = 'grayscale(1)';
     vid.style.opacity = '0';
     vid.style.transition = 'opacity 0.5s ease-in-out';
+    // Add video load/error event logging
+    vid.onerror = function() {
+      console.error('Video failed to load:', src);
+    };
+    vid.onloadeddata = function() {
+      console.log('Video loaded:', src);
+    };
     container.appendChild(vid);
     bgVideos.push(vid);
   });
@@ -213,17 +220,35 @@ function draw() {
   }
 
   // Handle video frame capture and motion detection
-  const currentFrame = captureCurrentFrame();
+  let currentFrame = null;
+  try {
+    currentFrame = captureCurrentFrame();
+  } catch (e) {
+    console.warn('Error capturing current frame:', e);
+    currentFrame = null;
+  }
   if (currentFrame) {
-    motionBlobs = detectBlobs(currentFrame);
+    try {
+      motionBlobs = detectBlobs(currentFrame);
+    } catch (e) {
+      console.warn('Error detecting blobs:', e);
+      motionBlobs = [];
+    }
+  } else {
+    motionBlobs = [];
   }
 
   // --- FIRST LOOPS: text + blobs (normal colors, no video) ---
   if (phraseLoopCount < LOOPS_BEFORE_VIDEO) {
     background(0);
     for (let blob of motionBlobs) {
-      let region = currentFrame.get(blob.minX, blob.minY, blob.width, blob.height);
+      let region = null;
       try {
+        if (!currentFrame) {
+          console.warn('No currentFrame available, skipping blob drawing');
+          continue;
+        }
+        region = currentFrame.get(blob.minX, blob.minY, blob.width, blob.height);
         region.loadPixels();
         for (let i = 0; i < region.pixels.length; i += 4) {
           let r = region.pixels[i];
@@ -244,11 +269,12 @@ function draw() {
         }
         image(region, blob.minX, blob.minY);
       } catch (e) {
-        // If error, just draw the region as is
+        console.warn('Error extracting or drawing blob region:', e);
+        continue;
       }
     }
     // Draw the phrase text with word-by-word reveal (no fade)
-    textFont('Helvetica Neue');
+    textFont('Helvetica Neue, Arial, sans-serif');
     textStyle(BOLD);
     textSize(60);
     textLeading(60);
@@ -289,10 +315,12 @@ function draw() {
       }
     } else if (millis() >= holdStartTime + 7000) {
       currentPhraseIndex = (currentPhraseIndex + 1);
+      console.log('Advancing to phrase', currentPhraseIndex, 'of', phrases.length, 'PhraseLoopCount:', phraseLoopCount);
       if (currentPhraseIndex >= phrases.length) {
         phraseLoopCount++;
         betweenLoopsBlack = true;
         betweenLoopsStartTime = millis();
+        console.log('End of phrases, starting black screen, PhraseLoopCount:', phraseLoopCount);
       } else {
         initPhrase();
       }
@@ -326,8 +354,13 @@ function draw() {
   // --- AFTER LOOPS_BEFORE_VIDEO + second intro: text + video + blobs (inverted colors in blobs) ---
   clear();
   for (let blob of motionBlobs) {
-    let region = currentFrame.get(blob.minX, blob.minY, blob.width, blob.height);
+    let region = null;
     try {
+      if (!currentFrame) {
+        console.warn('No currentFrame available, skipping blob drawing');
+        continue;
+      }
+      region = currentFrame.get(blob.minX, blob.minY, blob.width, blob.height);
       region.loadPixels();
       for (let i = 0; i < region.pixels.length; i += 4) {
         let r = region.pixels[i];
@@ -348,11 +381,12 @@ function draw() {
       }
       image(region, blob.minX, blob.minY);
     } catch (e) {
-      // If error, just draw the region as is
+      console.warn('Error extracting or drawing blob region:', e);
+      continue;
     }
   }
   // Draw the phrase text
-  textFont('Helvetica Neue');
+  textFont('Helvetica Neue, Arial, sans-serif');
   textStyle(BOLD);
   textSize(60);
   textLeading(60);
@@ -376,6 +410,7 @@ function draw() {
     }
   } else if (millis() >= holdStartTime + 7000) {
     currentPhraseIndex = (currentPhraseIndex + 1) % phrases.length;
+    console.log('Advancing to phrase', currentPhraseIndex, 'of', phrases.length, 'PhraseLoopCount:', phraseLoopCount);
     initPhrase();
   }
   // Table remains hidden
